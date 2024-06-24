@@ -50,7 +50,7 @@ int buildProject(void){
 
 #if defined(macintosh) || defined(Macintosh) || \
   (defined(__APPLE__) && defined(__MACH__))
-#define BUILD_APPLE
+#define BUILD_MAC
 #endif /*macintosh, Macintosh, __APPLE__ and __MACH__*/
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__WIN32__) || \
@@ -59,9 +59,31 @@ int buildProject(void){
 #endif /*_WIN32, _WIN64, __WIN32__, TOS_WIN, __WINDOWS__*/
 
 #if defined(__unix__) || defined(__unix) || defined(BUILD_C_APPLE)
-#define BUILD_APPLE
+#define BUILD_UNIX
 #endif /*__unix__, __unix, BUILD_APPLE*/
 
+/* Determine Architecture */
+#if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || \
+  defined(__x86_64) || defined(_M_AMD64)
+#define BUILD_X86_64
+#endif /*x86_64*/
+
+#if defined(__arm__) || defined(_M_ARM)
+#define BUILD_ARM
+#endif /*ARM*/
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+#define BUILD_ARM64
+#endif /*ARM64*/
+
+#ifdef __riscv
+#define BUILD_RISCV
+#endif
+
+#if defined(i386) || defined(__i386) || defined(__i386__) || \
+  defined(_M_IX86) || defined(_X86_)
+#define BUILD_i386
+#endif /*i386*/
 /* Compilers suported */
 #define CLANG_CC "clang"
 #define GNU_CC "gcc"
@@ -96,6 +118,9 @@ int buildProject(void){
 #include <stdio.h>
 
 char* selected_CC;
+#define PLATFORM_LEN 256
+char platform[PLATFORM_LEN];
+char buildPath[PLATFORM_LEN];
 
 /* Compile function */
 int compile(const char* src, const char* name){
@@ -129,13 +154,13 @@ int compile(const char* src, const char* name){
         BINARY_FOLDER,
         name);
 
-    puts(command);
+    printf("  %s\n",command);
     return system(command);
   
   /* GCC/Clang */
   }else{
 
-    size = snprintf(NULL, 0, "%s %s %s %s %s %s/%s -o %s/%s",
+    size = snprintf(NULL, 0, "%s %s %s %s %s %s/%s -o %s/%s_%s",
        selected_CC,
        GCC_WARN_FLAGS,
        GCC_C_STANDARD,
@@ -143,14 +168,15 @@ int compile(const char* src, const char* name){
        GCC_INCLUDE,
        SOURCE_FOLDER,
        src,
-       BINARY_FOLDER,
-       name);
+       buildPath,
+       name,
+       platform);
 
     size++;
 
     command = alloca(size);
    
-    snprintf(command, size, "%s %s %s %s %s %s/%s -o %s/%s",
+    snprintf(command, size, "%s %s %s %s %s %s/%s -o %s/%s_%s",
        selected_CC,
        GCC_WARN_FLAGS,
        GCC_C_STANDARD,
@@ -158,48 +184,97 @@ int compile(const char* src, const char* name){
        GCC_INCLUDE,
        SOURCE_FOLDER,
        src,
-       BINARY_FOLDER,
-       name);
+       buildPath,
+       name,
+       platform);
 
-    puts(command);
+    printf("  %s\n",command);
     return system(command);
 
   } 
 }
 
 /* Make Directory */
-int makeDir(const char* dir){
+int makeBuildDir(const char* buildDir, char* platform){
   int size;
   char* command;
 
 #ifdef BUILD_WINDOWS
-  size = snprintf(NULL, 0, "mkdir %s", dir);
+  size = snprintf(NULL, 0, "mkdir %s\\%s", buildDir, platform);
   size++;
   command = _alloca(size);
-  snprintf(command, size, "mkdir %s", dir);
-  puts(command)
+  snprintf(command, size, "mkdir %s\\%s", buildDir, platform);
+  snprintf(buildPath, PLATFORM_LEN, "%s\\%s", buildDir, platform);
+  printf("  %s\n",command);
   return system(command);
 #else
-  size = snprintf(NULL, 0, "mkdir -p %s", dir);
+  size = snprintf(NULL, 0, "mkdir -p %s/%s", buildDir, platform);
   size++;
   command = alloca(size);
-  snprintf(command, size, "mkdir -p %s", dir);
-  puts(command);
+  snprintf(command, size, "mkdir -p %s/%s", buildDir, platform);
+  snprintf(buildPath, PLATFORM_LEN, "%s/%s", buildDir, platform);
+  printf("  %s\n",command);
   return system(command);
 #endif /* BUILD_WINDOWS */
 }
 
+/* Figures out the platform string */
+void determinePlatform(void){
+  char* os = NULL;
+  char* arch = NULL;
+
+#ifdef BUILD_LINUX
+  os = "Linux";
+#endif /*BUILD_LINUX*/
+
+/* TODO figure out the various BSDs */
+
+#ifdef BUILD_MAC
+  os = "Mac";
+#endif /*BUILD_MAC*/
+
+#ifdef BUILD_WINDOWS
+  os = "Windows";
+#endif /*BUILD_WINDOWS*/
+
+#ifdef BUILD_X86_64
+  arch = "x86_64";
+#endif /*X86_64*/
+
+#ifdef BUILD_i386
+  arch = "i386";
+#endif /*i386*/
+
+#ifdef BUILD_ARM64
+  arch = "ARM64";
+#endif /*ARM*/
+
+#ifdef BUILD_ARM
+  arch = "ARM";
+#endif /*ARM*/
+
+#ifdef BUILD_RISCV
+  arch = "RISC-V";
+#endif /*RISCV*/
+
+  snprintf(platform, PLATFORM_LEN, "%s-%s", os, arch);
+
+}
+
 int main ( int argc, char **argv ) {
-  
   int err;
   
   selected_CC = DEFAULT_CC;
 
-  puts("BuildC building...");
-  
-  err = makeDir(BINARY_FOLDER);
+  determinePlatform();
+  puts("**********");
+  puts("* BuildC *");
+  puts("**********");
+  printf("Building for %s\n", platform);
+ 
+  err = makeBuildDir(BINARY_FOLDER, platform);
   if(err != 0){
-    printf("Failed to make %s directory!", BINARY_FOLDER);
+    printf("Failed to make %s directory!\n", BINARY_FOLDER);
     return err;
   }
 
