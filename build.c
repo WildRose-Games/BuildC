@@ -8,7 +8,10 @@
  *
  */
 
+/* Where the binary will end up relative to build.c */
 const char* BINARY_FOLDER = "bin";
+
+/* Where all the source files are relative to build.c */
 const char* SOURCE_FOLDER = "src";
 
 /* GCC/clang flags */
@@ -24,9 +27,7 @@ const char* MSVC_LIBRARIES = ""; /* TODO learn MSVC better */
 const char* MSVC_INCLUDE = ""; /* TODO learn MSVC better */
 
 /*
- *  Uses above flags, the src, and selected compiler to build output with 
- *  chosen name.
- *
+ *  Uses above flags, the src, and selected compiler to build.
  *  returns 0 if success
  */
 int compile(const char* src, const char* name);
@@ -73,7 +74,7 @@ int buildProject(void){
 #define DEFAULT_CC CLANG_CC
 #endif /*__clang__*/
 
-#ifdef __GNUC__
+#if defined(__GNUC__)  && !defined(__llvm__) && !defined(__INTEL_COMPILER)
 #define DEFAULT_CC GNU_CC
 #endif /*__GNUC__*/
 
@@ -98,10 +99,11 @@ char* selected_CC;
 
 /* Compile function */
 int compile(const char* src, const char* name){
-  
+  char* command;
+  int size;
   /* MSVC */
   if(strcmp(selected_CC, MSVC_CC) == 0){
-    int size = snprintf(NULL, 0, "%s %s %s %s %s %s\\%s /Fe \"%s\\%s\"",
+    size = snprintf(NULL, 0, "%s %s %s %s %s %s\\%s /Fe \"%s\\%s\"",
         selected_CC,
         MSVC_WARN_FLAGS,
         MSVC_C_STANDARD,
@@ -114,7 +116,7 @@ int compile(const char* src, const char* name){
     
     size++;
 
-    char* command = alloca(size);
+    command = alloca(size);
     
     snprintf(command, size, "%s %s %s %s %s %s\\%s /Fe \"%s\\%s\"",
         selected_CC,
@@ -127,12 +129,13 @@ int compile(const char* src, const char* name){
         BINARY_FOLDER,
         name);
 
+    puts(command);
     return system(command);
   
   /* GCC/Clang */
   }else{
 
-    int size = snprintf(NULL, 0, "%s %s %s %s %s %s/%s -o %s/%s",
+    size = snprintf(NULL, 0, "%s %s %s %s %s %s/%s -o %s/%s",
        selected_CC,
        GCC_WARN_FLAGS,
        GCC_C_STANDARD,
@@ -145,7 +148,7 @@ int compile(const char* src, const char* name){
 
     size++;
 
-    char* command = alloca(size);
+    command = alloca(size);
    
     snprintf(command, size, "%s %s %s %s %s %s/%s -o %s/%s",
        selected_CC,
@@ -158,6 +161,7 @@ int compile(const char* src, const char* name){
        BINARY_FOLDER,
        name);
 
+    puts(command);
     return system(command);
 
   } 
@@ -165,17 +169,22 @@ int compile(const char* src, const char* name){
 
 /* Make Directory */
 int makeDir(const char* dir){
+  int size;
+  char* command;
+
 #ifdef BUILD_WINDOWS
-  int size = snprintf(NULL, 0, "mkdir %s", dir);
+  size = snprintf(NULL, 0, "mkdir %s", dir);
   size++;
-  char* command = _alloca(size);
+  command = _alloca(size);
   snprintf(command, size, "mkdir %s", dir);
+  puts(command)
   return system(command);
 #else
-  int size = snprintf(NULL, 0, "mkdir -p %s", dir);
+  size = snprintf(NULL, 0, "mkdir -p %s", dir);
   size++;
-  char* command = alloca(size);
+  command = alloca(size);
   snprintf(command, size, "mkdir -p %s", dir);
+  puts(command);
   return system(command);
 #endif /* BUILD_WINDOWS */
 }
